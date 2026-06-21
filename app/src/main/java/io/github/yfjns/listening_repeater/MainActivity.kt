@@ -417,7 +417,11 @@ fun PlayerScreen(
                                 }
                             ),
                             contentDescription = "Speed",
-                            tint = Color.White,
+                            tint =
+                                if (selectedSpeed == speed)
+                                    Color.Green
+                                else
+                                    Color.White,
                             modifier = Modifier.size(40.dp)
                         )
                     }
