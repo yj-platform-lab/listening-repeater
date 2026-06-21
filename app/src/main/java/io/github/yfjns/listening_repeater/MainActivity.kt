@@ -36,7 +36,10 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
-import androidx.media3.exoplayer.ExoPlayer
+import android.content.ComponentName
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.MoreExecutors
 import io.github.yfjns.listening_repeater.ui.theme.ListeningrepeaterTheme
 
 val android.content.Context.dataStore by preferencesDataStore(name = "settings")
@@ -44,29 +47,39 @@ val android.content.Context.dataStore by preferencesDataStore(name = "settings")
 val SAVED_FOLDER_URIS = stringSetPreferencesKey("saved_folder_uris")
 class MainActivity : ComponentActivity() {
 
-    private lateinit var player: ExoPlayer
+    private var controller: MediaController? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        player = ExoPlayer.Builder(this).build()
+        val sessionToken = SessionToken(
+            this,
+            ComponentName(this, PlaybackService::class.java)
+        )
 
-        val uri = Uri.parse("android.resource://$packageName/${R.raw.menuettm}")
-        val mediaItem = MediaItem.fromUri(uri)
+        val controllerFuture = MediaController.Builder(
+            this,
+            sessionToken
+        ).buildAsync()
 
-        player.setMediaItem(mediaItem)
-        player.prepare()
+        controllerFuture.addListener(
+            {
+                controller = controllerFuture.get()
 
-        setContent {
-            ListeningrepeaterTheme {
-                LibraryScreen(player)
-            }
-        }
+                setContent {
+                    ListeningrepeaterTheme {
+                        LibraryScreen(controller!!)
+                    }
+                }
+            },
+            MoreExecutors.directExecutor()
+        )
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        player.release()
+        controller?.release()
+        controller = null
     }
 }
 data class AudioFile(
@@ -85,7 +98,7 @@ enum class Screen {
     PLAYER
 }
 @Composable
-fun LibraryScreen(player: ExoPlayer) {
+fun LibraryScreen(player: MediaController) {
     var folders by remember {
         mutableStateOf<List<AudioFolder>>(emptyList())
     }
@@ -271,7 +284,7 @@ fun LibraryScreen(player: ExoPlayer) {
 
 @Composable
 fun PlayerScreen(
-    player: ExoPlayer,
+    player: MediaController,
     title: String,
     onBack: () -> Unit
 ) {
