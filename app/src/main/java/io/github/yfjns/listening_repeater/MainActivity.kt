@@ -30,11 +30,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import android.content.Intent
 import androidx.documentfile.provider.DocumentFile
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import io.github.yfjns.listening_repeater.ui.theme.ListeningrepeaterTheme
 
+val android.content.Context.dataStore by preferencesDataStore(name = "settings")
 
+val SAVED_FOLDER_URIS = stringSetPreferencesKey("saved_folder_uris")
 class MainActivity : ComponentActivity() {
 
     private lateinit var player: ExoPlayer
@@ -95,6 +102,18 @@ fun LibraryScreen(player: ExoPlayer) {
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        val savedUris =
+            context.dataStore.data.first()[SAVED_FOLDER_URIS] ?: emptySet()
+
+        folders = savedUris.map { uriText ->
+            val uri = Uri.parse(uriText)
+            createAudioFolder(context, uri)
+        }
+    }
+
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -105,29 +124,16 @@ fun LibraryScreen(player: ExoPlayer) {
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
 
-            val folder = DocumentFile.fromTreeUri(context, uri)
-
-            val files = folder
-                ?.listFiles()
-                ?.filter { file ->
-                    file.isFile &&
-                            file.name?.endsWith(".mp3", ignoreCase = true) == true
-                }
-                ?.map { file ->
-                    AudioFile(
-                        name = file.name ?: "Unknown",
-                        uri = file.uri
-                    )
-                }
-                ?: emptyList()
-
-            val newFolder = AudioFolder(
-                name = getFolderName(uri),
-                uri = uri,
-                files = files
-            )
+            val newFolder = createAudioFolder(context, uri)
 
             folders = folders + newFolder
+
+            scope.launch {
+                context.dataStore.edit { settings ->
+                    settings[SAVED_FOLDER_URIS] =
+                        folders.map { it.uri.toString() }.toSet()
+                }
+            }
         }
     }
 
@@ -442,4 +448,31 @@ fun getFolderName(uri: Uri): String {
     val text = uri.toString()
     val folderName = text.substringAfterLast("%3A")
     return folderName.ifBlank { "Selected folder" }
+}
+
+fun createAudioFolder(
+    context: android.content.Context,
+    uri: Uri
+): AudioFolder {
+    val folder = DocumentFile.fromTreeUri(context, uri)
+
+    val files = folder
+        ?.listFiles()
+        ?.filter { file ->
+            file.isFile &&
+                    file.name?.endsWith(".mp3", ignoreCase = true) == true
+        }
+        ?.map { file ->
+            AudioFile(
+                name = file.name ?: "Unknown",
+                uri = file.uri
+            )
+        }
+        ?: emptyList()
+
+    return AudioFolder(
+        name = getFolderName(uri),
+        uri = uri,
+        files = files
+    )
 }
