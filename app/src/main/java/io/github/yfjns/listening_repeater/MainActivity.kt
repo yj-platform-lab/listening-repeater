@@ -29,7 +29,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
-import android.content.Intent
 import androidx.documentfile.provider.DocumentFile
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -43,7 +42,6 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import io.github.yfjns.listening_repeater.ui.theme.ListeningrepeaterTheme
 import android.view.KeyEvent
-import android.util.Log
 
 val android.content.Context.dataStore by preferencesDataStore(name = "settings")
 
@@ -492,10 +490,12 @@ fun formatTime(ms: Long): String {
     return "%02d:%02d".format(minutes, seconds)
 }
 
-fun getFolderName(uri: Uri): String {
-    val text = uri.toString()
-    val folderName = text.substringAfterLast("%3A")
-    return folderName.ifBlank { "Selected folder" }
+fun getFolderName(
+    context: android.content.Context,
+    uri: Uri
+): String {
+    val folder = DocumentFile.fromTreeUri(context, uri)
+    return folder?.name ?: "Selected folder"
 }
 
 fun createAudioFolder(
@@ -519,7 +519,7 @@ fun createAudioFolder(
         ?: emptyList()
 
     return AudioFolder(
-        name = getFolderName(uri),
+        name = getFolderName(context, uri),
         uri = uri,
         files = files
     )
