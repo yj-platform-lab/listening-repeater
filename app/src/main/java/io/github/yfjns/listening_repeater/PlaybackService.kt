@@ -12,9 +12,8 @@ class PlaybackService : MediaSessionService() {
 
         val player = ExoPlayer.Builder(this).build()
 
-        mediaSession =
-            MediaSession.Builder(this, player)
-                .build()
+        mediaSession = MediaSession.Builder(this, player)
+            .build()
     }
 
     override fun onGetSession(
