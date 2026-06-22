@@ -41,6 +41,8 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import io.github.yfjns.listening_repeater.ui.theme.ListeningrepeaterTheme
+import android.view.KeyEvent
+import android.util.Log
 
 val android.content.Context.dataStore by preferencesDataStore(name = "settings")
 
@@ -80,6 +82,37 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         controller?.release()
         controller = null
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action != KeyEvent.ACTION_DOWN) {
+            return super.dispatchKeyEvent(event)
+        }
+
+        val player = controller ?: return super.dispatchKeyEvent(event)
+
+        return when (event.keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0))
+                true
+            }
+
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                player.seekTo(player.currentPosition + 10_000)
+                true
+            }
+
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                if (player.isPlaying) {
+                    player.pause()
+                } else {
+                    player.play()
+                }
+                true
+            }
+
+            else -> super.dispatchKeyEvent(event)
+        }
     }
 }
 data class AudioFile(
